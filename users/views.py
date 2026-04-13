@@ -78,6 +78,7 @@ def all_profiles_view(request: HttpRequest) -> HttpResponse:
     return render(request, "all_profiles.html", {"users": users})
 
 def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
+    """Просмотр профиля пользователя."""
     try:
         profile_user = User.objects.get(id=user_id)
         return render(request, "user_profile.html", {"profile_user": profile_user})
