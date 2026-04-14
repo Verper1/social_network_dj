@@ -1,3 +1,5 @@
+"""Вьюхи для работы с пользователями."""
+
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.shortcuts import render
@@ -22,27 +24,32 @@ def registration_view(request: HttpRequest) -> HttpResponse:
 
     return render(request, "registration.html", {"form": form})
 
+
 @login_required
 def profile_view(request: HttpRequest) -> HttpResponse:
     """Просмотр профиля пользователя."""
     password_form = PasswordChangeForm(request.user)
     return render(request, "profile.html", {"password_form": password_form})
 
+
 @login_required
-def change_avatar(request):
+def change_avatar(request: HttpRequest) -> HttpResponse:
+    """Изменение аватара пользователя."""
     if request.method == "POST" and request.FILES.get("avatar"):
         profile = request.user.profile
         profile.avatar = request.FILES["avatar"]
         profile.save()
         return redirect("profile")
-    
+
     password_form = PasswordChangeForm(request.user)
     return render(request, "profile.html", {"password_form": password_form})
 
+
 @login_required
-def change_username(request):
+def change_username(request: HttpRequest) -> HttpResponse:
+    """Изменение имени пользователя."""
     error_message = None
-    
+
     if request.method == "POST":
         new_username = request.POST.get("username")
 
@@ -54,15 +61,18 @@ def change_username(request):
             request.user.username = new_username
             request.user.save()
             return redirect("profile")
-    
+
     password_form = PasswordChangeForm(request.user)
-    return render(request, "profile.html", {
-        "password_form": password_form, 
-        "username_error": error_message
-    })
+    return render(
+        request,
+        "profile.html",
+        {"password_form": password_form, "username_error": error_message},
+    )
+
 
 @login_required
-def change_password(request):
+def change_password(request: HttpRequest) -> HttpResponse:
+    """Изменение пароля пользователя."""
     form = PasswordChangeForm(request.user, request.POST or None)
 
     if request.method == "POST" and form.is_valid():
@@ -72,10 +82,12 @@ def change_password(request):
 
     return render(request, "profile.html", {"password_form": form})
 
+
 def all_profiles_view(request: HttpRequest) -> HttpResponse:
     """Главная страница и просмотр всех профилей."""
     users = User.objects.all()
     return render(request, "all_profiles.html", {"users": users})
+
 
 def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
     """Просмотр профиля пользователя."""
