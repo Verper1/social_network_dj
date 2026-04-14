@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>Профиль</title>
+        <link rel="stylesheet" href="/static/styles.css">
+    </head>
+    <body>
+        <h2>Профиль</h2>
+
+        {% if user.profile.avatar %}
+            <img src="{{ user.profile.avatar.url }}" width="120">
+        {% else %}
+            <img src="/media/avatars/defualt_avatar.png" width="120">
+        {% endif %}
+
+        <p>Вы вошли как {{ user.username }}</p>
+
+        <h3>Сменить username</h3>
+        <form method="post" action="{% url 'change_username' %}">
+            {% csrf_token %}
+            <input type="text" name="username" value="{{ user.username }}">
+
+            {% if username_error %}
+                <p style="color: red;">{{ username_error }}</p>
+            {% endif %}
+            <button>Сохранить</button>
+        </form>
+
+        <hr>
+
+        <h3>Сменить пароль</h3>
+        <form method="post" action="{% url 'change_password' %}">
+            {% csrf_token %}
+            <p>Введите старый пароль: <input type="password" name="old_password"></p>
+            <p>Введите новый пароль: <input type="password" name="new_password1"></p>
+            <p>Введите повторно новый пароль: <input type="password" name="new_password2"></p>
+
+            {% if password_form.errors %}
+                <div class="error-list">
+                    {% for field, errors in password_form.errors.items %}
+                        {% for error in errors %}
+                            <p class="error-field">{{ error }}</p>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <button>Сменить пароль</button>
+        </form>
+
+        <hr>
+
+        <h3>Сменить аватар</h3>
+        <form method="post" action="{% url 'change_avatar' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="avatar">
+
+            {{ form.errors }}
+            <button>Загрузить</button>
+        </form>
+
+        <hr>
+
+        <a href="{% url 'logout' %}">Выйти</a>
+        <h3><a href="{% url 'all_profiles' %}">Вернуться на главную</a></h3>
+    </body>
+</html>
