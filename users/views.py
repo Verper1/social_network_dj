@@ -2,13 +2,13 @@
 
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.http import HttpResponse, HttpRequest
+from django.http import HttpResponse, HttpRequest, HttpResponseForbidden
 
-from users.models import Profile
+from users.models import Profile, Post, Like, Comment
 
 
 def registration_view(request: HttpRequest) -> HttpResponse:
@@ -93,6 +93,104 @@ def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
     """Просмотр профиля пользователя."""
     try:
         profile_user = User.objects.get(id=user_id)
-        return render(request, "user_profile.html", {"profile_user": profile_user})
     except User.DoesNotExist:
         return render(request, "user_profile.html", {"error": "User not found"})
+
+    posts = (
+        Post.objects.filter(author=profile_user)
+        .select_related("author")
+        .prefetch_related("likes", "comments__author")
+    )
+
+    liked_post_ids: set[int] = set()
+    if request.user.is_authenticated:
+        liked_post_ids = set(
+            Like.objects.filter(user=request.user, post__in=posts).values_list(
+                "post_id", flat=True
+            )
+        )
+
+    posts_data = [
+        {
+            "post": post,
+            "likes_count": post.likes.count(),
+            "is_liked": post.id in liked_post_ids,
+            "comments": post.comments.all(),
+        }
+        for post in posts
+    ]
+
+    is_own_wall = request.user.is_authenticated and request.user.id == profile_user.id
+
+    return render(
+        request,
+        "user_profile.html",
+        {
+            "profile_user": profile_user,
+            "posts_data": posts_data,
+            "is_own_wall": is_own_wall,
+        },
+    )
+
+
+@login_required
+def create_post(request: HttpRequest) -> HttpResponse:
+    """Создание поста на своей стене."""
+    if request.method == "POST":
+        content = request.POST.get("content", "").strip()
+        if content:
+            Post.objects.create(author=request.user, content=content)
+
+    return redirect("user_profile", user_id=request.user.id)
+
+
+@login_required
+def delete_post(request: HttpRequest, post_id: int) -> HttpResponse:
+    """Удаление собственного поста."""
+    post = get_object_or_404(Post, id=post_id)
+    if post.author_id != request.user.id:
+        return HttpResponseForbidden("Нельзя удалить чужой пост")
+
+    author_id = post.author_id
+    if request.method == "POST":
+        post.delete()
+
+    return redirect("user_profile", user_id=author_id)
+
+
+@login_required
+def toggle_like(request: HttpRequest, post_id: int) -> HttpResponse:
+    """Поставить/убрать лайк посту."""
+    post = get_object_or_404(Post, id=post_id)
+    if request.method == "POST":
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+        if not created:
+            like.delete()
+
+    return redirect("user_profile", user_id=post.author_id)
+
+
+@login_required
+def add_comment(request: HttpRequest, post_id: int) -> HttpResponse:
+    """Добавление комментария к посту."""
+    post = get_object_or_404(Post, id=post_id)
+    if request.method == "POST":
+        content = request.POST.get("content", "").strip()
+        if content:
+            Comment.objects.create(author=request.user, post=post, content=content)
+
+    return redirect("user_profile", user_id=post.author_id)
+
+
+@login_required
+def delete_comment(request: HttpRequest, comment_id: int) -> HttpResponse:
+    """Удаление собственного комментария."""
+    comment = get_object_or_404(Comment, id=comment_id)
+    if comment.author_id != request.user.id:
+        return HttpResponseForbidden("Нельзя удалить чужой комментарий")
+
+    wall_owner_id = comment.post.author_id
+    if request.method == "POST":
+        comment.delete()
+
+    return redirect("user_profile", user_id=wall_owner_id)

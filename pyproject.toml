@@ -19,6 +19,10 @@ dev = [
     "loguru>=0.7.3",
     "mypy>=1.19.1",
     "ruff>=0.15.4",
+    "vcrpy>=6.0.2",
+    "hypothesis>=6.115.0",
+    "deal>=4.24.5",
+    "freezegun>=1.5.1",
 ]
 
 [tool.ruff]

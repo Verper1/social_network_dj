@@ -26,6 +26,11 @@ from users.views import (
     change_password,
     change_avatar,
     user_profile_view,
+    create_post,
+    delete_post,
+    toggle_like,
+    add_comment,
+    delete_comment,
 )
 from social_media_settings import settings
 from django.conf.urls.static import static
@@ -40,6 +45,11 @@ urlpatterns = [
     path("profile/password/", change_password, name="change_password"),
     path("profile/avatar/", change_avatar, name="change_avatar"),
     path("user/<int:user_id>/", user_profile_view, name="user_profile"),
+    path("post/create/", create_post, name="create_post"),
+    path("post/<int:post_id>/delete/", delete_post, name="delete_post"),
+    path("post/<int:post_id>/like/", toggle_like, name="toggle_like"),
+    path("post/<int:post_id>/comment/", add_comment, name="add_comment"),
+    path("comment/<int:comment_id>/delete/", delete_comment, name="delete_comment"),
     path("", all_profiles_view, name="all_profiles"),
 ]
 

@@ -6,29 +6,31 @@
         <link rel="stylesheet" href="/static/styles.css">
     </head>
     <body>
-        <h2>Регистрация</h2>
+        <div class="container">
+            <h2>Регистрация</h2>
 
-        <form method="post">
-            {% csrf_token %}
+            <form method="post">
+                {% csrf_token %}
 
-            <p>Юзернейм: {{ form.username }}</p>
-            <p>Пароль: {{ form.password1 }}</p>
-            <p>Повторите пароль: {{ form.password2 }}</p>
+                <p>Юзернейм: {{ form.username }}</p>
+                <p>Пароль: {{ form.password1 }}</p>
+                <p>Повторите пароль: {{ form.password2 }}</p>
 
-            {% if form.errors %}
-                <div class="error-list">
-                    {% for field, errors in form.errors.items %}
-                        {% for error in errors %}
-                            <p class="error-field">{{ error }}</p>
+                {% if form.errors %}
+                    <div class="error-list">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <p class="error-field">{{ error }}</p>
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
-                </div>
-            {% endif %}
+                    </div>
+                {% endif %}
 
-            <button type="submit">Зарегистрироваться</button>
-        </form>
+                <button type="submit">Зарегистрироваться</button>
+            </form>
 
-        <h3>Уже есть аккаунт? Тогда <a href="{% url 'login' %}">войдите</a>.</h3>
-        <h3><a href="{% url 'all_profiles' %}">На главную</a></h3>
+            <h3>Уже есть аккаунт? Тогда <a href="{% url 'login' %}">войдите</a>.</h3>
+            <h3><a href="{% url 'all_profiles' %}">На главную</a></h3>
+        </div>
     </body>
 </html>
