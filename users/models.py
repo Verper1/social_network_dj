@@ -7,6 +7,18 @@ from django.db import models
 class Profile(models.Model):
     """Профиль пользователя."""
 
+    class RelationshipStatus(models.TextChoices):
+        """Семейное положение."""
+
+        NOT_SET = "", "Не указан"
+        SINGLE = "single", "Не женат / Не замужем"
+        DATING = "dating", "Встречается"
+        ENGAGED = "engaged", "Помолвлен(а)"
+        MARRIED = "married", "Женат / Замужем"
+        COMPLICATED = "complicated", "Всё сложно"
+        SEARCHING = "searching", "В активном поиске"
+        IN_LOVE = "in_love", "Влюблён(а)"
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     avatar = models.ImageField(
         upload_to="avatars/", default="avatars/default_avatar.png"
@@ -14,7 +26,12 @@ class Profile(models.Model):
     bio = models.TextField(blank=True, default="")
     birth_date = models.DateField(null=True, blank=True)
     city = models.CharField(max_length=100, blank=True, default="")
-    status = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=RelationshipStatus.choices,
+        blank=True,
+        default=RelationshipStatus.NOT_SET,
+    )
 
     def __str__(self) -> str:
         return f"Профиль {self.user.username}"

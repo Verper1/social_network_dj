@@ -83,12 +83,25 @@
             <h3>Обо мне</h3>
             <form method="post" action="{% url 'change_profile_info' %}">
                 {% csrf_token %}
+
+                {% if profile_form.non_field_errors %}
+                    <div class="error-list">
+                        {% for error in profile_form.non_field_errors %}
+                            <p class="error-field">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
                 {% for field in profile_form %}
                     <p>
                         <label for="{{ field.id_for_label }}">{{ field.label }}:</label><br>
                         {{ field }}
                         {% if field.errors %}
-                            <span class="error-field">{{ field.errors|join:", " }}</span>
+                            <div class="error-list">
+                                {% for error in field.errors %}
+                                    <p class="error-field">{{ error }}</p>
+                                {% endfor %}
+                            </div>
                         {% endif %}
                     </p>
                 {% endfor %}

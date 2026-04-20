@@ -7,10 +7,11 @@ from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
-from django.http import HttpResponse, HttpRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpRequest
 
 from users.forms import ProfileInfoForm
-from users.models import Post, Like, Comment
+from users.models import Post, Comment
+from users.services import comments, feed, posts, profile
 
 
 def registration_view(request: HttpRequest) -> HttpResponse:
@@ -46,9 +47,7 @@ def profile_view(request: HttpRequest) -> HttpResponse:
 def change_avatar(request: HttpRequest) -> HttpResponse:
     """Изменение аватара пользователя."""
     if request.method == "POST" and request.FILES.get("avatar"):
-        profile = request.user.profile
-        profile.avatar = request.FILES["avatar"]
-        profile.save()
+        profile.change_avatar(request.user, request.FILES["avatar"])
         return redirect("profile")
 
     return render(request, "profile.html", _profile_context(request))
@@ -60,19 +59,10 @@ def change_username(request: HttpRequest) -> HttpResponse:
     error_message = None
 
     if request.method == "POST":
-        new_username = request.POST.get("username")
-
-        if not new_username:
-            error_message = "Имя пользователя не может быть пустым"
-        elif (
-            User.objects.filter(username=new_username)
-            .exclude(id=request.user.id)
-            .exists()
-        ):
-            error_message = "Пользователь с таким именем уже существует"
-        else:
-            request.user.username = new_username
-            request.user.save()
+        error_message = profile.change_username(
+            request.user, request.POST.get("username")
+        )
+        if error_message is None:
             return redirect("profile")
 
     return render(
@@ -100,15 +90,15 @@ def change_password(request: HttpRequest) -> HttpResponse:
 @login_required
 def change_profile_info(request: HttpRequest) -> HttpResponse:
     """Сохранение персональной информации (bio, дата рождения, город, статус)."""
-    profile = request.user.profile
+    user_profile = request.user.profile
 
     if request.method == "POST":
-        form = ProfileInfoForm(request.POST, instance=profile)
+        form = ProfileInfoForm(request.POST, instance=user_profile)
         if form.is_valid():
             form.save()
             return redirect("profile")
     else:
-        form = ProfileInfoForm(instance=profile)
+        form = ProfileInfoForm(instance=user_profile)
 
     return render(request, "profile.html", _profile_context(request, profile_form=form))
 
@@ -122,31 +112,7 @@ def all_profiles_view(request: HttpRequest) -> HttpResponse:
 def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
     """Просмотр профиля пользователя."""
     profile_user = get_object_or_404(User, id=user_id)
-
-    posts = (
-        Post.objects.filter(author=profile_user)
-        .select_related("author")
-        .prefetch_related("likes", "comments__author")
-    )
-
-    liked_post_ids: set[int] = set()
-    if request.user.is_authenticated:
-        liked_post_ids = set(
-            Like.objects.filter(user=request.user, post__in=posts).values_list(
-                "post_id", flat=True
-            )
-        )
-
-    posts_data = [
-        {
-            "post": post,
-            "likes_count": post.likes.count(),
-            "is_liked": post.id in liked_post_ids,
-            "comments": post.comments.all(),
-        }
-        for post in posts
-    ]
-
+    posts_data = feed.build_wall_feed(request.user, profile_user)
     is_own_wall = request.user.is_authenticated and request.user.id == profile_user.id
 
     return render(
@@ -164,11 +130,7 @@ def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
 @require_POST
 def create_post(request: HttpRequest) -> HttpResponse:
     """Создание поста на своей стене."""
-    if request.method == "POST":
-        content = request.POST.get("content", "").strip()
-        if content:
-            Post.objects.create(author=request.user, content=content)
-
+    posts.create_post(request.user, request.POST.get("content", ""))
     return redirect("user_profile", user_id=request.user.id)
 
 
@@ -177,13 +139,8 @@ def create_post(request: HttpRequest) -> HttpResponse:
 def delete_post(request: HttpRequest, post_id: int) -> HttpResponse:
     """Удаление собственного поста."""
     post = get_object_or_404(Post, id=post_id)
-    if post.author_id != request.user.id:
-        return HttpResponseForbidden("Нельзя удалить чужой пост")
-
     author_id = post.author_id
-    if request.method == "POST":
-        post.delete()
-
+    posts.delete_post(request.user, post)
     return redirect("user_profile", user_id=author_id)
 
 
@@ -192,11 +149,7 @@ def delete_post(request: HttpRequest, post_id: int) -> HttpResponse:
 def toggle_like(request: HttpRequest, post_id: int) -> HttpResponse:
     """Поставить/убрать лайк посту."""
     post = get_object_or_404(Post, id=post_id)
-    if request.method == "POST":
-        like, created = Like.objects.get_or_create(user=request.user, post=post)
-        if not created:
-            like.delete()
-
+    posts.toggle_like(request.user, post)
     return redirect("user_profile", user_id=post.author_id)
 
 
@@ -205,11 +158,7 @@ def toggle_like(request: HttpRequest, post_id: int) -> HttpResponse:
 def add_comment(request: HttpRequest, post_id: int) -> HttpResponse:
     """Добавление комментария к посту."""
     post = get_object_or_404(Post, id=post_id)
-    if request.method == "POST":
-        content = request.POST.get("content", "").strip()
-        if content:
-            Comment.objects.create(author=request.user, post=post, content=content)
-
+    comments.add_comment(request.user, post, request.POST.get("content", ""))
     return redirect("user_profile", user_id=post.author_id)
 
 
@@ -218,11 +167,6 @@ def add_comment(request: HttpRequest, post_id: int) -> HttpResponse:
 def delete_comment(request: HttpRequest, comment_id: int) -> HttpResponse:
     """Удаление собственного комментария."""
     comment = get_object_or_404(Comment, id=comment_id)
-    if comment.author_id != request.user.id:
-        return HttpResponseForbidden("Нельзя удалить чужой комментарий")
-
     wall_owner_id = comment.post.author_id
-    if request.method == "POST":
-        comment.delete()
-
+    comments.delete_comment(request.user, comment)
     return redirect("user_profile", user_id=wall_owner_id)
