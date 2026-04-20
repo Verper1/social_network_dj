@@ -75,8 +75,24 @@
                 {% csrf_token %}
                 <input type="file" name="avatar">
 
-                {{ form.errors }}
                 <button>Загрузить</button>
+            </form>
+
+            <hr>
+
+            <h3>Обо мне</h3>
+            <form method="post" action="{% url 'change_profile_info' %}">
+                {% csrf_token %}
+                {% for field in profile_form %}
+                    <p>
+                        <label for="{{ field.id_for_label }}">{{ field.label }}:</label><br>
+                        {{ field }}
+                        {% if field.errors %}
+                            <span class="error-field">{{ field.errors|join:", " }}</span>
+                        {% endif %}
+                    </p>
+                {% endfor %}
+                <button>Сохранить</button>
             </form>
 
             <hr>

@@ -5,12 +5,19 @@ from django.db import models
 
 
 class Profile(models.Model):
-    """Модель для привязки аватара к пользователю."""
+    """Профиль пользователя."""
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     avatar = models.ImageField(
         upload_to="avatars/", default="avatars/default_avatar.png"
     )
+    bio = models.TextField(blank=True, default="")
+    birth_date = models.DateField(null=True, blank=True)
+    city = models.CharField(max_length=100, blank=True, default="")
+    status = models.CharField(max_length=255, blank=True, default="")
+
+    def __str__(self) -> str:
+        return f"Профиль {self.user.username}"
 
 
 class Post(models.Model):
@@ -27,6 +34,10 @@ class Post(models.Model):
 
         ordering = ["-created_at"]
 
+    def __str__(self) -> str:
+        preview = self.content[:30]
+        return f"{self.author.username}: {preview}"
+
 
 class Like(models.Model):
     """Лайк на пост."""
@@ -39,6 +50,9 @@ class Like(models.Model):
         """Настройки модели Like."""
 
         unique_together = ("user", "post")
+
+    def __str__(self) -> str:
+        return f"{self.user.username} ♥ пост #{self.post_id}"
 
 
 class Comment(models.Model):
@@ -53,3 +67,7 @@ class Comment(models.Model):
         """Настройки модели Comment."""
 
         ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        preview = self.content[:30]
+        return f"{self.author.username} → пост #{self.post_id}: {preview}"

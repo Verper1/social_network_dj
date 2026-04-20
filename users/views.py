@@ -5,10 +5,12 @@ from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.shortcuts import render, get_object_or_404
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from django.http import HttpResponse, HttpRequest, HttpResponseForbidden
 
-from users.models import Profile, Post, Like, Comment
+from users.forms import ProfileInfoForm
+from users.models import Post, Like, Comment
 
 
 def registration_view(request: HttpRequest) -> HttpResponse:
@@ -16,8 +18,7 @@ def registration_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            Profile.objects.create(user=user)
+            form.save()
             return redirect("login")
     else:
         form = UserCreationForm()
@@ -25,11 +26,20 @@ def registration_view(request: HttpRequest) -> HttpResponse:
     return render(request, "registration.html", {"form": form})
 
 
+def _profile_context(request: HttpRequest, **overrides: object) -> dict[str, object]:
+    """Базовый контекст для страницы настроек профиля."""
+    context: dict[str, object] = {
+        "password_form": PasswordChangeForm(request.user),
+        "profile_form": ProfileInfoForm(instance=request.user.profile),
+    }
+    context.update(overrides)
+    return context
+
+
 @login_required
 def profile_view(request: HttpRequest) -> HttpResponse:
     """Просмотр профиля пользователя."""
-    password_form = PasswordChangeForm(request.user)
-    return render(request, "profile.html", {"password_form": password_form})
+    return render(request, "profile.html", _profile_context(request))
 
 
 @login_required
@@ -41,8 +51,7 @@ def change_avatar(request: HttpRequest) -> HttpResponse:
         profile.save()
         return redirect("profile")
 
-    password_form = PasswordChangeForm(request.user)
-    return render(request, "profile.html", {"password_form": password_form})
+    return render(request, "profile.html", _profile_context(request))
 
 
 @login_required
@@ -55,18 +64,21 @@ def change_username(request: HttpRequest) -> HttpResponse:
 
         if not new_username:
             error_message = "Имя пользователя не может быть пустым"
-        elif User.objects.filter(username=new_username).exists():
+        elif (
+            User.objects.filter(username=new_username)
+            .exclude(id=request.user.id)
+            .exists()
+        ):
             error_message = "Пользователь с таким именем уже существует"
         else:
             request.user.username = new_username
             request.user.save()
             return redirect("profile")
 
-    password_form = PasswordChangeForm(request.user)
     return render(
         request,
         "profile.html",
-        {"password_form": password_form, "username_error": error_message},
+        _profile_context(request, username_error=error_message),
     )
 
 
@@ -80,7 +92,25 @@ def change_password(request: HttpRequest) -> HttpResponse:
         update_session_auth_hash(request, user)
         return redirect("profile")
 
-    return render(request, "profile.html", {"password_form": form})
+    return render(
+        request, "profile.html", _profile_context(request, password_form=form)
+    )
+
+
+@login_required
+def change_profile_info(request: HttpRequest) -> HttpResponse:
+    """Сохранение персональной информации (bio, дата рождения, город, статус)."""
+    profile = request.user.profile
+
+    if request.method == "POST":
+        form = ProfileInfoForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            return redirect("profile")
+    else:
+        form = ProfileInfoForm(instance=profile)
+
+    return render(request, "profile.html", _profile_context(request, profile_form=form))
 
 
 def all_profiles_view(request: HttpRequest) -> HttpResponse:
@@ -91,10 +121,7 @@ def all_profiles_view(request: HttpRequest) -> HttpResponse:
 
 def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
     """Просмотр профиля пользователя."""
-    try:
-        profile_user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        return render(request, "user_profile.html", {"error": "User not found"})
+    profile_user = get_object_or_404(User, id=user_id)
 
     posts = (
         Post.objects.filter(author=profile_user)
@@ -134,6 +161,7 @@ def user_profile_view(request: HttpRequest, user_id: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def create_post(request: HttpRequest) -> HttpResponse:
     """Создание поста на своей стене."""
     if request.method == "POST":
@@ -145,6 +173,7 @@ def create_post(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def delete_post(request: HttpRequest, post_id: int) -> HttpResponse:
     """Удаление собственного поста."""
     post = get_object_or_404(Post, id=post_id)
@@ -159,6 +188,7 @@ def delete_post(request: HttpRequest, post_id: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def toggle_like(request: HttpRequest, post_id: int) -> HttpResponse:
     """Поставить/убрать лайк посту."""
     post = get_object_or_404(Post, id=post_id)
@@ -171,6 +201,7 @@ def toggle_like(request: HttpRequest, post_id: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def add_comment(request: HttpRequest, post_id: int) -> HttpResponse:
     """Добавление комментария к посту."""
     post = get_object_or_404(Post, id=post_id)
@@ -183,6 +214,7 @@ def add_comment(request: HttpRequest, post_id: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def delete_comment(request: HttpRequest, comment_id: int) -> HttpResponse:
     """Удаление собственного комментария."""
     comment = get_object_or_404(Comment, id=comment_id)

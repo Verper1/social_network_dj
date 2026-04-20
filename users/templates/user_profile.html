@@ -54,8 +54,20 @@
                             {% endif %}
                             <div class="profile-info">
                                 <h2>{{ profile_user.username }}</h2>
+                                {% if profile_user.profile.status %}
+                                    <p class="profile-status"><em>{{ profile_user.profile.status }}</em></p>
+                                {% endif %}
                                 <p>User ID: #{{ profile_user.id }}</p>
                                 <p>Joined: {{ profile_user.date_joined|date:"d.m.Y" }}</p>
+                                {% if profile_user.profile.birth_date %}
+                                    <p>Дата рождения: {{ profile_user.profile.birth_date|date:"d.m.Y" }}</p>
+                                {% endif %}
+                                {% if profile_user.profile.city %}
+                                    <p>Город: {{ profile_user.profile.city }}</p>
+                                {% endif %}
+                                {% if profile_user.profile.bio %}
+                                    <p>О себе: {{ profile_user.profile.bio|linebreaksbr }}</p>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
