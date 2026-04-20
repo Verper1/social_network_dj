@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>Профиль</title>
+        <link rel="stylesheet" href="/static/styles.css">
+    </head>
+    <body>
+        <nav class="top-nav">
+            <div class="top-nav-left">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'user_profile' user.id %}" class="nav-user">
+                        {% if user.profile.avatar %}
+                            <img src="{{ user.profile.avatar.url }}" alt="Avatar" class="nav-avatar">
+                        {% else %}
+                            <img src="/media/avatars/default_avatar.png" alt="Avatar" class="nav-avatar">
+                        {% endif %}
+                        <span>{{ user.username }}</span>
+                    </a>
+                {% endif %}
+                <a href="{% url 'all_profiles' %}" class="nav-link">Главная</a>
+            </div>
+            <div class="top-nav-right">
+                <a href="{% url 'logout' %}" class="nav-link" onclick="return confirm('Вы уверены, что хотите выйти?')">Выйти</a>
+            </div>
+        </nav>
+
+        <div class="container">
+            <h2>Настройки профиля</h2>
+
+            {% if user.profile.avatar %}
+                <img src="{{ user.profile.avatar.url }}" width="120">
+            {% else %}
+                <img src="/media/avatars/default_avatar.png" width="120">
+            {% endif %}
+
+            <p>Вы вошли как {{ user.username }}</p>
+
+            <h3>Сменить username</h3>
+            <form method="post" action="{% url 'change_username' %}">
+                {% csrf_token %}
+                <input type="text" name="username" value="{{ user.username }}">
+
+                {% if username_error %}
+                    <p style="color: red;">{{ username_error }}</p>
+                {% endif %}
+                <button>Сохранить</button>
+            </form>
+
+            <hr>
+
+            <h3>Сменить пароль</h3>
+            <form method="post" action="{% url 'change_password' %}">
+                {% csrf_token %}
+                <p>Введите старый пароль: <input type="password" name="old_password"></p>
+                <p>Введите новый пароль: <input type="password" name="new_password1"></p>
+                <p>Введите повторно новый пароль: <input type="password" name="new_password2"></p>
+
+                {% if password_form.errors %}
+                    <div class="error-list">
+                        {% for field, errors in password_form.errors.items %}
+                            {% for error in errors %}
+                                <p class="error-field">{{ error }}</p>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <button>Сменить пароль</button>
+            </form>
+
+            <hr>
+
+            <h3>Сменить аватар</h3>
+            <form method="post" action="{% url 'change_avatar' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="file" name="avatar">
+
+                <button>Загрузить</button>
+            </form>
+
+            <hr>
+
+            <h3>Обо мне</h3>
+            <form method="post" action="{% url 'change_profile_info' %}">
+                {% csrf_token %}
+
+                {% if profile_form.non_field_errors %}
+                    <div class="error-list">
+                        {% for error in profile_form.non_field_errors %}
+                            <p class="error-field">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% for field in profile_form %}
+                    <p>
+                        <label for="{{ field.id_for_label }}">{{ field.label }}:</label><br>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="error-list">
+                                {% for error in field.errors %}
+                                    <p class="error-field">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </p>
+                {% endfor %}
+                <button>Сохранить</button>
+            </form>
+
+            <hr>
+
+            <a href="{% url 'logout' %}" onclick="return confirm('Вы уверены, что хотите выйти?')">Выйти</a>
+        </div>
+    </body>
+</html>
